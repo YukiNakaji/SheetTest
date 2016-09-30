@@ -36,6 +36,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ public class MainActivity extends Activity
     private static final String BUTTON_TEXT = "Call Google Sheets API";
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = {SheetsScopes.SPREADSHEETS};
+    private Intent intent;
 
     /**
      * Create the main activity.
@@ -112,6 +114,12 @@ public class MainActivity extends Activity
         mCredential = GoogleAccountCredential.usingOAuth2(
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
+
+        intent = getIntent();
+        if(intent.hasExtra("androidaccel")){
+            getResultsFromApi();
+            Toast.makeText(this,"スプレッドシートへの保存が完了しました",Toast.LENGTH_SHORT).show();
+        }
     }
 
 
@@ -360,12 +368,73 @@ public class MainActivity extends Activity
          */
         private void putDataFromAPI() throws IOException{
             String spreadsheetId = "1KGlEF4lHTvCd5gBDcSdj3pyK7Y3lAw9bCL-_RMBxVAg";
-            String range = "シート1!A2:D2";
+            String sheetName = String.valueOf(System.currentTimeMillis());
+            BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
+            List<Request> requests = new ArrayList<>();
+            Request e = new Request();
+            AddSheetRequest addSheet = new AddSheetRequest();
+            SheetProperties properties = new SheetProperties();
+            properties.setTitle(sheetName);
+            properties.setIndex(1);
+            addSheet.setProperties(properties);
+            e.setAddSheet(addSheet);
+            requests.add(e);
+            content.setRequests(requests);
+            BatchUpdateSpreadsheetResponse response = this.mService.spreadsheets().batchUpdate(
+                    spreadsheetId,
+                    content
+            ).execute();
             ValueRange valueRange = new ValueRange();
             List row = new ArrayList<>();
-            List col = Arrays.asList("This", "is", "test", "test");
-            row.add(col);
+
+            if (intent.hasExtra("androidaccel")) {
+                row.add(Arrays.asList("timestamp", "SensorType", "x", "y", "z"));
+                float[] androidaccelList = intent.getFloatArrayExtra("androidaccel");
+                for (int i = 0; i < androidaccelList.length; i += 4) {
+                    List col = new ArrayList<>();
+                    col.add(androidaccelList[i]);
+                    col.add("Android ACCELEROMETER");
+                    col.add(androidaccelList[i + 1]);
+                    col.add(androidaccelList[i + 2]);
+                    col.add(androidaccelList[i + 3]);
+                    row.add(col);
+                }
+                float[] androidgyroList = intent.getFloatArrayExtra("androidgyro");
+                for (int i = 0; i < androidgyroList.length; i += 4) {
+                    List col = new ArrayList<>();
+                    col.add(androidgyroList[i]);
+                    col.add("Android GYROSCOPE");
+                    col.add(androidgyroList[i + 1]);
+                    col.add(androidgyroList[i + 2]);
+                    col.add(androidgyroList[i + 3]);
+                    row.add(col);
+                }
+                float[] myoaccelList = intent.getFloatArrayExtra("myoaccel");
+                for (int i = 0; i < myoaccelList.length; i += 4) {
+                    List col = new ArrayList<>();
+                    col.add(myoaccelList[i]);
+                    col.add("Myo ACCELEROMETER");
+                    col.add(myoaccelList[i + 1]);
+                    col.add(myoaccelList[i + 2]);
+                    col.add(myoaccelList[i + 3]);
+                    row.add(col);
+                }
+                float[] myogyroList = intent.getFloatArrayExtra("myogyro");
+                for (int i = 0; i < myogyroList.length; i += 4) {
+                    List col = new ArrayList<>();
+                    col.add(myogyroList[i]);
+                    col.add("Myo GYROSCOPE");
+                    col.add(myogyroList[i + 1]);
+                    col.add(myogyroList[i + 2]);
+                    col.add(myogyroList[i + 3]);
+                    row.add(col);
+                }
+            } else {
+                row.add(Arrays.asList("There", "is", "no", "intent", "..."));
+            }
+
             valueRange.setValues(row);
+            String range = sheetName + "!A1:E" + row.size();
             valueRange.setRange(range);
             this.mService.spreadsheets().values()
                     .update(spreadsheetId, range, valueRange)
@@ -415,7 +484,7 @@ public class MainActivity extends Activity
                 mOutputText.setText("No results returned.");
             } else {
                 output.add(0, "Data retrieved using the Google Sheets API:");
-                mOutputText.setText(TextUtils.join("\n", output));
+                //mOutputText.setText(TextUtils.join("\n", output));
             }
         }
 
