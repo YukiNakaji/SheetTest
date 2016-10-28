@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecovera
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.Data;
 import com.google.api.client.util.ExponentialBackOff;
 
 import com.google.api.services.sheets.v4.SheetsScopes;
@@ -30,7 +31,9 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
+import android.text.format.Time;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -116,9 +119,13 @@ public class MainActivity extends Activity
                 .setBackOff(new ExponentialBackOff());
 
         intent = getIntent();
-        if(intent.hasExtra("androidaccel")){
+        if (intent.hasExtra("androidaccel")) {
             getResultsFromApi();
-            Toast.makeText(this,"スプレッドシートへの保存が完了しました",Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "スプレッドシートへの保存が完了しました", Toast.LENGTH_SHORT).show();
+        } else if (intent.hasExtra("watch_accel_time")) {
+            Log.d("tag", "ここは呼び出される");
+            getResultsFromApi();
+            Toast.makeText(this, "SmartWatchデータの保存が完了しました", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -364,11 +371,22 @@ public class MainActivity extends Activity
 
         /**
          * データを書き込むメソッド
+         *
          * @throws IOException
          */
-        private void putDataFromAPI() throws IOException{
+        private void putDataFromAPI() throws IOException {
             String spreadsheetId = "1KGlEF4lHTvCd5gBDcSdj3pyK7Y3lAw9bCL-_RMBxVAg";
-            String sheetName = String.valueOf(System.currentTimeMillis());
+            Time time = new Time("Asia/Tokyo");
+            time.setToNow();
+            String data = (time.month + 1) + "/" + time.monthDay + " " + time.hour + ":" + time.minute + ":" + time.second;
+            String sheetName = "";
+            if (intent.hasExtra("androidaccel")) {
+                sheetName = "A/M: " + data;
+            } else if (intent.hasExtra("watch_accel_time")) {
+                sheetName = "W: " + data;
+            } else {
+                sheetName = data;
+            }
             BatchUpdateSpreadsheetRequest content = new BatchUpdateSpreadsheetRequest();
             List<Request> requests = new ArrayList<>();
             Request e = new Request();
@@ -388,45 +406,115 @@ public class MainActivity extends Activity
             List row = new ArrayList<>();
 
             if (intent.hasExtra("androidaccel")) {
-                row.add(Arrays.asList("timestamp", "SensorType", "x", "y", "z"));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
                 float[] androidaccelList = intent.getFloatArrayExtra("androidaccel");
-                for (int i = 0; i < androidaccelList.length; i += 4) {
+                for (int i = 0; i < androidaccelList.length; i += 5) {
                     List col = new ArrayList<>();
-                    col.add(androidaccelList[i]);
                     col.add("Android ACCELEROMETER");
+                    col.add(androidaccelList[i]);
                     col.add(androidaccelList[i + 1]);
                     col.add(androidaccelList[i + 2]);
                     col.add(androidaccelList[i + 3]);
+                    col.add(androidaccelList[i + 4]);
                     row.add(col);
                 }
+
+                row.add(Arrays.asList("", "", "", "", "", ""));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
                 float[] androidgyroList = intent.getFloatArrayExtra("androidgyro");
                 for (int i = 0; i < androidgyroList.length; i += 4) {
                     List col = new ArrayList<>();
-                    col.add(androidgyroList[i]);
                     col.add("Android GYROSCOPE");
+                    col.add(androidgyroList[i]);
                     col.add(androidgyroList[i + 1]);
                     col.add(androidgyroList[i + 2]);
                     col.add(androidgyroList[i + 3]);
                     row.add(col);
                 }
+
+                row.add(Arrays.asList("", "", "", "", "", ""));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
                 float[] myoaccelList = intent.getFloatArrayExtra("myoaccel");
-                for (int i = 0; i < myoaccelList.length; i += 4) {
+                for (int i = 0; i < myoaccelList.length; i += 5) {
                     List col = new ArrayList<>();
-                    col.add(myoaccelList[i]);
                     col.add("Myo ACCELEROMETER");
+                    col.add(myoaccelList[i]);
                     col.add(myoaccelList[i + 1]);
                     col.add(myoaccelList[i + 2]);
                     col.add(myoaccelList[i + 3]);
+                    col.add(myoaccelList[i + 4]);
                     row.add(col);
                 }
+
+                row.add(Arrays.asList("", "", "", "", "", ""));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
                 float[] myogyroList = intent.getFloatArrayExtra("myogyro");
                 for (int i = 0; i < myogyroList.length; i += 4) {
                     List col = new ArrayList<>();
-                    col.add(myogyroList[i]);
                     col.add("Myo GYROSCOPE");
+                    col.add(myogyroList[i]);
                     col.add(myogyroList[i + 1]);
                     col.add(myogyroList[i + 2]);
                     col.add(myogyroList[i + 3]);
+                    row.add(col);
+                }
+            } else if (intent.hasExtra("watch_accel_time")) {
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
+                float[] watch_accel_time = intent.getFloatArrayExtra("watch_accel_time");
+                float[] watch_accel_x = intent.getFloatArrayExtra("watch_accel_x");
+                float[] watch_accel_y = intent.getFloatArrayExtra("watch_accel_y");
+                float[] watch_accel_z = intent.getFloatArrayExtra("watch_accel_z");
+                float[] watch_accel_3 = intent.getFloatArrayExtra("watch_accel_3");
+                if (watch_accel_time != null) {
+                    Log.d("true", "OK");
+                    Log.d("time", Arrays.toString(watch_accel_time));
+                    Log.d("x", Arrays.toString(watch_accel_x));
+                    Log.d("y", Arrays.toString(watch_accel_y));
+                    Log.d("z", Arrays.toString(watch_accel_z));
+                    Log.d("data", Arrays.toString(watch_accel_3));
+                } else {
+                    Log.d("false", "NG");
+                }
+                for (int i = 0; i < watch_accel_time.length; i++) {
+                    List col = new ArrayList<>();
+                    col.add("Watch ACCELEROMETER");
+                    col.add(watch_accel_time[i]);
+                    col.add(watch_accel_x[i]);
+                    col.add(watch_accel_y[i]);
+                    col.add(watch_accel_z[i]);
+                    float x2 = watch_accel_x[i] * watch_accel_x[i];
+                    float y2 = watch_accel_y[i] * watch_accel_y[i];
+                    float z2 = watch_accel_z[i] * watch_accel_z[i];
+                    float A = (float) Math.sqrt(x2 + y2 + z2);
+                    col.add(A);
+                    row.add(col);
+                }
+
+                row.add(Arrays.asList("", "", "", "", "", ""));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "x", "y", "z", "3軸合成"));
+                float[] watch_gyro_time = intent.getFloatArrayExtra("watch_gyro_time");
+                float[] watch_gyro_x = intent.getFloatArrayExtra("watch_gyro_x");
+                float[] watch_gyro_y = intent.getFloatArrayExtra("watch_gyro_y");
+                float[] watch_gyro_z = intent.getFloatArrayExtra("watch_gyro_z");
+                for (int i = 0; i < watch_gyro_time.length; i++) {
+                    List col = new ArrayList<>();
+                    col.add("Watch GYROSCOPE");
+                    col.add(watch_gyro_time[i]);
+                    col.add(watch_gyro_x[i]);
+                    col.add(watch_gyro_y[i]);
+                    col.add(watch_gyro_z[i]);
+                    row.add(col);
+                }
+
+                row.add(Arrays.asList("", "", "", "", "", ""));
+                row.add(Arrays.asList("SensorType", "経過時間(ms)", "value"));
+                float[] watch_press_time = intent.getFloatArrayExtra("watch_press_time");
+                float[] watch_press_value = intent.getFloatArrayExtra("watch_press_value");
+                for (int i = 0; i < watch_press_time.length; i++) {
+                    List col = new ArrayList<>();
+                    col.add("Watch PRESSURE");
+                    col.add(watch_press_time[i]);
+                    col.add(watch_press_value[i]);
                     row.add(col);
                 }
             } else {
@@ -434,7 +522,7 @@ public class MainActivity extends Activity
             }
 
             valueRange.setValues(row);
-            String range = sheetName + "!A1:E" + row.size();
+            String range = sheetName + "!A1:F" + row.size();
             valueRange.setRange(range);
             this.mService.spreadsheets().values()
                     .update(spreadsheetId, range, valueRange)
@@ -449,6 +537,8 @@ public class MainActivity extends Activity
          * @return List of names and majors
          * @throws IOException
          */
+
+
         private List<String> getDataFromApi() throws IOException {
             String spreadsheetId = "1KGlEF4lHTvCd5gBDcSdj3pyK7Y3lAw9bCL-_RMBxVAg";
             String range = "シート1!A1:D1";
@@ -469,7 +559,6 @@ public class MainActivity extends Activity
             }
             return results;
         }
-
 
         @Override
         protected void onPreExecute() {
